@@ -1,0 +1,9 @@
+.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { fill: var(--ink-3); font-size: 11px; font-family: var(--f-num); font-weight: 600; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.line { stroke: var(--ink); stroke-width: 2.5; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.area { fill: var(--sun); opacity: 0.55; }
+.dot { fill: var(--ink); stroke: var(--canvas); stroke-width: 2.5; }
+.chart .end { fill: var(--ink); font-size: 15px; font-weight: 800; }
+.target { stroke: var(--go); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.chart .targetLbl { fill: var(--go); font-size: 11px; }

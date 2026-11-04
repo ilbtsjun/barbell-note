@@ -1,0 +1,41 @@
+.head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.n { font-size: 16px; }
+.n:is(b) { color: var(--ink); }
+.wtForm { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.input {
+  border: 0; box-shadow: inset 0 0 0 1.5px var(--line); background: var(--canvas); border-radius: 12px;
+  padding: 8px 14px; color: var(--ink); width: 100%; min-width: 0; font-size: 20px; font-weight: 600;
+}
+.input::placeholder { font-family: var(--f-body); font-size: 14px; font-weight: 500; color: var(--ink-3); }
+.input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--ink); }
+.error { color: var(--alert); font-size: 13.5px; font-weight: 600; }
+
+.goal { display: flex; flex-direction: column; gap: 10px; }
+.goalNums { display: grid; grid-template-columns: repeat(3, 1fr); }
+.goalNums span { display: flex; flex-direction: column; line-height: 1.1; }
+.goalNums span:nth-child(2) { align-items: center; }
+.goalNums span:last-child { align-items: flex-end; }
+.goalNums small { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+.goalNums b { font-size: 28px; font-weight: 700; }
+.goalNums span:first-child b { color: var(--ink); font-size: 34px; }
+.goalBar { position: relative; height: 12px; background: var(--sunken); border-radius: 6px; }
+.goalFill { position: absolute; inset: 0 auto 0 0; background: var(--sun); border-radius: 6px; box-shadow: inset 0 0 0 1.5px var(--sun-deep); }
+.goalMark { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; background: var(--ink); border-radius: 2px; }
+
+.lift { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 10px 0; border-top: 1px solid var(--line); text-align: left; width: 100%; }
+.v { text-align: right; line-height: 1; }
+.v :global(.num) { font-size: 24px; font-weight: 700; }
+.v small { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.track { grid-column: 1 / -1; height: 8px; background: var(--sunken); border-radius: 4px; overflow: hidden; }
+.fill { display: block; height: 100%; background: var(--ink); border-radius: 4px; }
+.gain { font-size: 12.5px; color: var(--go); font-weight: 700; }
+.flat { font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
+
+.sheetTitle { font-family: var(--f-display); font-weight: 400; font-size: 30px; line-height: 1.2; }
+.pt { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; color: var(--ink-2); }
+.pt b { font-size: 17px; color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) {
+  .fill, .goalFill { transition: width 0.45s var(--ease-out); }
+  .lift { transition: transform 0.12s ease-out; }
+  .lift:active { transform: scale(0.98); }
+}

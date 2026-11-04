@@ -1,3 +1,4 @@
+import { toISODate } from '../lib/dates';
 import { generatePlan, type PlanInput } from '../lib/planGenerator';
 import { db, type BarbellDB } from './schema';
 import type { Plan, PlanDay, Profile } from './types';
@@ -16,12 +17,13 @@ export const DEFAULT_PROFILE: Profile = {
 export async function createPlan(input: PlanInput, bodyWeight: number, database: BarbellDB = db): Promise<number> {
   const exercises = await database.exercises.toArray();
   const { plan, days } = generatePlan(input, exercises);
-  return database.transaction('rw', [database.plans, database.planDays, database.profile], async () => {
+  return database.transaction('rw', [database.plans, database.planDays, database.profile, database.bodyWeights], async () => {
     await database.plans.toCollection().modify((p) => { p.active = false; });
     const planId = await database.plans.add(plan as Plan);
     await database.planDays.bulkAdd(days.map((d) => ({ ...d, planId }) as PlanDay));
     const prev = (await database.profile.get('me')) ?? DEFAULT_PROFILE;
     await database.profile.put({ ...prev, bodyWeight, goal: input.goal, days: input.days, equipment: input.equipment });
+    await database.bodyWeights.put({ date: toISODate(new Date()), weight: bodyWeight }); // 몸무게 그래프의 첫 점
     return planId;
   });
 }

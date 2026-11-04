@@ -29,3 +29,13 @@ export function useWorkout() {
 export function useSessionsOn(date: string) {
   return useLiveQuery(() => db.sessions.where('date').equals(date).toArray(), [date]);
 }
+
+/** 모든 운동 기록, 최근 것부터 */
+export function useSessions() {
+  return useLiveQuery(async () => (await db.sessions.toArray()).sort((a, b) => b.date.localeCompare(a.date) || (b.id ?? 0) - (a.id ?? 0)), []);
+}
+
+/** 몸무게 기록, 날짜순 */
+export function useBodyWeights() {
+  return useLiveQuery(() => db.bodyWeights.orderBy('date').toArray(), []);
+}

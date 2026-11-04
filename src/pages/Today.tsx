@@ -5,8 +5,9 @@ import { EmptyState } from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useActivePlan, useExerciseMap, useProfile, useSessionsOn, useWorkout } from '../db/hooks';
 import { saveWorkout } from '../db/workoutRepo';
-import type { Exercise, PlanDay, Session, SetRecord } from '../db/types';
+import type { Exercise, PlanDay, Session } from '../db/types';
 import { fromISODate, koreanDate, toISODate, weekNumber, weekdayLabel } from '../lib/dates';
+import { setsSummary } from '../lib/stats';
 import { isHold } from '../lib/templates';
 import { workoutFromDay } from '../lib/workout';
 import styles from './Today.module.css';
@@ -130,17 +131,6 @@ export default function Today() {
       </section>
     </>
   );
-}
-
-/** 같은 무게끼리 묶어서 '70kg × 8 / 72.5kg × 8, 8, 8' */
-function setsSummary(sets: SetRecord[], unit: string) {
-  const groups: { weight: number; reps: number[] }[] = [];
-  for (const s of sets) {
-    const g = groups[groups.length - 1];
-    if (g && g.weight === s.weight) g.reps.push(s.reps);
-    else groups.push({ weight: s.weight, reps: [s.reps] });
-  }
-  return groups.map((g) => (g.weight ? `${g.weight}kg × ${g.reps.join(', ')}` : `${g.reps.join(', ')}${unit}`)).join(' / ');
 }
 
 /** 오늘 저장한 운동 요약 */

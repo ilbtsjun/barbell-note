@@ -34,3 +34,21 @@ export function weekNumber(startDate: string, today = new Date()) {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
   return Math.max(1, Math.floor(Math.round((t - start) / 86400000) / 7) + 1);
 }
+
+/** 'YYYY-MM-DD'에 n일을 더한다 */
+export function addDays(iso: string, n: number) {
+  const d = fromISODate(iso);
+  d.setDate(d.getDate() + n);
+  return toISODate(d);
+}
+
+/** 계획의 (주차, 요일)이 실제 며칠인지. startDate는 시작 주의 월요일. */
+export const planDayDate = (startDate: string, week: number, weekday: number) => addDays(startDate, (week - 1) * 7 + ((weekday + 6) % 7));
+
+/** 달력 칸: 월요일부터 시작, 앞쪽 빈칸은 null */
+export function monthCells(year: number, month: number): (string | null)[] {
+  const first = new Date(year, month, 1);
+  const lead = (first.getDay() + 6) % 7;
+  const last = new Date(year, month + 1, 0).getDate();
+  return [...Array<null>(lead).fill(null), ...Array.from({ length: last }, (_, i) => toISODate(new Date(year, month, i + 1)))];
+}
