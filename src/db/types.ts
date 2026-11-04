@@ -39,6 +39,8 @@ export interface Plan {
   weeks: number;
   startDate: string;
   active: boolean;
+  /** 고른 계획 시안 id (src/lib/templates.ts) */
+  templateId?: string;
 }
 
 export interface PlannedExercise {

@@ -1,0 +1,29 @@
+.goal { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.big { font-weight: 800; font-size: 56px; line-height: 0.9; letter-spacing: -0.01em; }
+.big small { font-size: 16px; font-weight: 700; margin-left: 2px; font-family: var(--f-body); }
+.arrow { font-size: 34px; font-weight: 600; color: var(--on-sun-2); line-height: 1; padding-bottom: 6px; }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.weeks { display: grid; gap: 4px; align-items: end; height: 84px; }
+.wk { background: var(--sunken); border-radius: 4px 4px 0 0; box-shadow: inset 0 0 0 1px var(--line); }
+.wk[data-state='done'] { background: var(--ink); box-shadow: none; }
+.wk[data-state='now'] { background: var(--sun-deep); box-shadow: none; }
+.wk[data-state='deload'] { background: repeating-linear-gradient(135deg, var(--sunken) 0 4px, var(--line) 4px 6px); }
+.wkLabels { display: grid; gap: 4px; font-size: 11px; color: var(--ink-3); text-align: center; font-family: var(--f-num); font-weight: 600; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.lgDone { background: var(--ink); }
+.lgNow { background: var(--sun-deep); }
+.lgDeload { background: repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 5px); box-shadow: inset 0 0 0 1px var(--line); }
+.prog { width: 100%; border-collapse: collapse; font-size: 14px; }
+.prog th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: 12px; padding: 0 0 6px; }
+.prog td { padding: 9px 0; border-top: 1px solid var(--line); }
+.prog td.r { font-size: 20px; font-weight: 700; }
+.r { text-align: right; }
+.prog tr[data-now] td { font-weight: 700; }
+.prog tr[data-now] td:first-child { box-shadow: inset 4px 0 0 var(--sun-deep); padding-left: 12px; }
+.week7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.day { border-radius: 12px; padding: 8px 2px; text-align: center; font-size: 12px; font-weight: 600; color: var(--ink-3); background: var(--sunken); min-width: 0; }
+.day b { display: block; font-size: 15px; color: var(--ink-2); margin-bottom: 2px; }
+.day[data-on] { background: var(--ink); color: #fff; }
+.day[data-on] b { color: var(--sun); }
+.day[data-today] { box-shadow: 0 0 0 2.5px var(--sun-deep); }

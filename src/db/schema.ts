@@ -15,7 +15,7 @@ export class BarbellDB extends Dexie {
     this.version(1).stores({
       profile: 'id',
       exercises: 'id, part, equipment',
-      plans: '++id, active',
+      plans: '++id',
       planDays: '++id, planId, [planId+week+weekday]',
       sessions: '++id, date',
       bodyWeights: 'date',
