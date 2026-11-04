@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { TabBar } from './components/TabBar';
 import { ToastProvider } from './components/Toast';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import styles from './App.module.css';
 
 const Today = lazy(() => import('./pages/Today'));
@@ -30,6 +31,7 @@ export default function App() {
             </Suspense>
           </main>
           <TabBar />
+          <UpdatePrompt />
         </div>
       </ToastProvider>
     </HashRouter>

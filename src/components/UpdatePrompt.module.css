@@ -1,0 +1,11 @@
+.bar {
+  position: fixed; left: 0; right: 0; top: 0; margin: 0 auto; max-width: var(--app-width); z-index: 25;
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
+  background: var(--canvas); padding: calc(10px + env(safe-area-inset-top, 0px)) var(--gutter-r) 10px var(--gutter-l);
+  box-shadow: 0 1px 0 var(--line), 0 8px 24px rgba(22, 24, 29, 0.12); font-weight: 700; font-size: 14px;
+}
+.go.go { background: var(--ink); color: #fff; }
+@media (prefers-reduced-motion: no-preference) {
+  .bar { animation: drop 0.3s var(--ease-out); }
+  @keyframes drop { from { transform: translateY(-100%); } }
+}

@@ -1,0 +1,6 @@
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.error { color: var(--alert); font-size: 13.5px; font-weight: 600; }
+.confirm { display: flex; flex-direction: column; gap: 10px; background: var(--sun-soft); border-radius: 14px; padding: 14px; font-size: 14px; }
+.danger.danger { background: var(--alert); }
+.persist { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.ok { font-size: 13px; color: var(--go); font-weight: 600; }
