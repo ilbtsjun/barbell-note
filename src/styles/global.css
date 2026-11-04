@@ -1,0 +1,55 @@
+@import './tokens.css';
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.5;
+  caret-color: var(--ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  -webkit-tap-highlight-color: transparent;
+}
+::selection { background: var(--sun); color: var(--on-sun); }
+button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+input { font: inherit; }
+:focus-visible { outline: 2.5px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
+h1, h2, p { margin: 0; }
+
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+
+/* 공통 버튼 */
+.btn {
+  display: block; text-align: center; text-decoration: none;
+  border-radius: 12px; padding: 14px 16px; font-weight: 700;
+  background: var(--ink); color: #fff;
+}
+.btn.line { background: var(--canvas); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.btn.sm { display: inline-block; padding: 7px 12px; font-size: 13px; border-radius: 9px; }
+
+/* 공통 칩 */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chip { flex: none; border-radius: 999px; padding: 7px 14px; font-size: 13.5px; font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--line); }
+.chip[aria-pressed='true'] { background: var(--ink); color: #fff; box-shadow: none; }
+
+/* 공통 구획 */
+.sec {
+  padding-block: 18px;
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  display: flex; flex-direction: column; gap: 12px;
+  border-bottom: 8px solid var(--sunken);
+}
+.sec:last-child { border-bottom: 0; }
+.sec-title { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); font-size: 13.5px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .chip { transition: transform 0.12s ease-out, background-color 0.15s ease-out, color 0.15s ease-out; }
+  .btn:active, .chip:active { transform: scale(0.96); }
+}

@@ -1,0 +1,20 @@
+.back { position: fixed; inset: 0; background: rgba(22, 24, 29, 0.4); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  background: var(--canvas);
+  width: 100%;
+  max-width: var(--app-width);
+  border-radius: 22px 22px 0 0;
+  padding: 10px var(--gutter-r) calc(20px + env(safe-area-inset-bottom, 0px)) var(--gutter-l);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 85vh;
+  overflow: auto;
+}
+.grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); align-self: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .back { animation: fade 0.2s ease-out; }
+  .sheet { animation: up 0.3s var(--ease-out); }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes up { from { transform: translateY(40px); opacity: 0.6; } }
+}

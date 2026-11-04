@@ -1,0 +1,6 @@
+.app { max-width: var(--app-width); min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; background: var(--canvas); }
+.main { flex: 1; display: flex; flex-direction: column; padding-bottom: 28px; }
+@media (min-width: 520px) {
+  :global(body) { background: var(--sunken); }
+  .app { box-shadow: 0 0 0 1px var(--line), 0 10px 40px rgba(22, 24, 29, 0.08); }
+}
