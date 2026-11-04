@@ -10,7 +10,8 @@
   font-size: 13.5px;
   font-weight: 600;
   z-index: 30;
-  max-width: calc(100% - 32px);
+  width: max-content;
+  max-width: calc(100vw - 32px);
 }
 .toast[hidden] { display: none; }
 @media (prefers-reduced-motion: no-preference) {

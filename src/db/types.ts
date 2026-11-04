@@ -79,6 +79,30 @@ export interface Session {
   minutes: number;
   exercises: SessionExercise[];
   memo?: string;
+  /** 계획에 따라 한 운동이면 그 계획과 주차 */
+  planId?: number;
+  week?: number;
+}
+
+/** 쉬는 시간 타이머. 끝나는 시각을 저장해서 새로고침하거나 화면을 꺼도 이어진다. */
+export interface RestTimer {
+  endsAt: number;
+  total: number;
+  label: string;
+}
+
+/** 진행 중인 운동 (하나만 저장). 운동을 끝내면 Session으로 옮기고 지운다. */
+export interface Workout {
+  id: 'current';
+  /** 'YYYY-MM-DD' 운동을 시작한 날 */
+  date: string;
+  routineName: string;
+  /** 첫 세트를 체크한 시각 (ms) */
+  startedAt: number;
+  exercises: SessionExercise[];
+  planId?: number;
+  week?: number;
+  rest?: RestTimer;
 }
 
 export interface BodyWeight {
