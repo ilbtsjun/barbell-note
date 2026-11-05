@@ -4,11 +4,14 @@ import { Band } from '../components/Band';
 import { useToast } from '../components/Toast';
 import { useActivePlan, useExerciseMap, useProfile } from '../db/hooks';
 import { createPlan, DEFAULT_PROFILE } from '../db/planRepo';
-import type { Equipment, Goal, Weekday } from '../db/types';
+import type { CustomDay, Equipment, Goal, Weekday } from '../db/types';
+import { CUSTOM_ID, LIMITS, planCustomVolume } from '../lib/customPlan';
 import { mondayOf, weekdayLabel } from '../lib/dates';
 import { epley1RM, isReliableReps } from '../lib/oneRm';
+import { josa } from '../lib/korean';
 import { BASE_LIFTS } from '../lib/planGenerator';
 import { DEFAULT_DAYS, exerciseCountLabel, getTemplate, recommendTemplates, sessionsLabel, TEMPLATES, type PlanTemplate } from '../lib/templates';
+import { CustomBuilder, syncCustomDays } from './CustomBuilder';
 import styles from './Setup.module.css';
 
 const GOALS: Goal[] = ['근력', '근비대', '체중 감량'];
@@ -16,13 +19,6 @@ const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
 const EQUIPMENT: Equipment[] = ['바벨', '덤벨', '머신', '케이블'];
 const PERIODS = [8, 12, 16];
 
-/** 받침이 있으면 '으로/은', 없거나 ㄹ이면 '로/는' */
-function withJosa(word: string, kind: '으로' | '은') {
-  const code = word.charCodeAt(word.length - 1) - 0xac00;
-  const final = code >= 0 && code < 11172 ? code % 28 : 0;
-  if (kind === '으로') return word + (final && final !== 8 ? '으로' : '로');
-  return word + (final ? '은' : '는');
-}
 
 /** 능력 입력: 기준 기록으로 1RM을 계산하고 계획을 만든다. */
 export default function Setup() {
@@ -44,6 +40,9 @@ export default function Setup() {
   /** 사용자가 직접 고른 시안은 목표나 기구를 바꿔도 그대로 둔다 */
   const [picked, setPicked] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [customDays, setCustomDays] = useState<CustomDay[]>([]);
+  /** 직접 만들기에서 사용자가 고친 요일 (요일 수가 바뀌어도 그대로 둔다) */
+  const [edited, setEdited] = useState<ReadonlySet<Weekday>>(new Set());
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -66,6 +65,10 @@ export default function Setup() {
         setTemplateId(active.plan.templateId);
         setPicked(true);
       }
+      if (active.plan.custom) {
+        setCustomDays(active.plan.custom);
+        setEdited(new Set(active.plan.custom.map((d) => d.weekday)));
+      }
     }
     setFilled(true);
   }, [profile, active, filled]);
@@ -73,11 +76,42 @@ export default function Setup() {
   const fullEquipment: Equipment[] = [...equipment, '맨몸'];
   const recommended = useMemo(() => recommendTemplates(goal, [...equipment, '맨몸']), [goal, equipment]);
   const template = getTemplate(templateId);
+  const isCustom = templateId === CUSTOM_ID;
+  const allExercises = useMemo(() => (exMap ? [...exMap.values()] : []), [exMap]);
+  const exById = exMap ?? new Map();
+  const review = useMemo(() => planCustomVolume(customDays, exById), [customDays, exById]);
+
+  // 직접 만들기에서는 고른 요일에 맞춰 요일별 구성을 늘리고 줄인다
+  useEffect(() => {
+    if (!isCustom || !allExercises.length) return;
+    setCustomDays((prev) => {
+      const next = syncCustomDays(prev, days, allExercises, fullEquipment, edited);
+      return next.length === prev.length && next.every((d, i) => d === prev[i]) ? prev : next;
+    });
+  }, [isCustom, days, allExercises, edited]);
+
+  function editCustom(next: CustomDay[]) {
+    const changed = next.filter((d) => !customDays.includes(d)).map((d) => d.weekday);
+    if (changed.length) setEdited((s) => new Set([...s, ...changed]));
+    setCustomDays(next);
+  }
 
   // 직접 고르기 전에는 조건에 가장 잘 맞는 시안을 따라간다
   useEffect(() => {
     if (!picked && recommended[0] && recommended[0].id !== templateId) chooseTemplate(recommended[0], false);
   }, [recommended, picked]);
+
+  function chooseCustom() {
+    setTemplateId(CUSTOM_ID);
+    setPicked(true);
+    setDays((d) => (d.length > LIMITS.maxDays ? d.slice(0, LIMITS.maxDays) : d));
+    setError('');
+  }
+
+  function toggleDay(d: Weekday) {
+    if (isCustom && !days.includes(d) && days.length >= LIMITS.maxDays) return setError(`주 ${LIMITS.maxDays}회까지 고를 수 있습니다. 하루는 쉬어야 회복됩니다.`);
+    setDays(toggle(days, d));
+  }
 
   /** 시안을 바꾸면 그 시안의 주당 횟수에 맞게 요일도 맞춘다 */
   function chooseTemplate(t: PlanTemplate, byUser = true) {
@@ -87,7 +121,7 @@ export default function Setup() {
     setError('');
   }
   const usable = (t: PlanTemplate) => !t.needs.length || t.needs.some((n) => fullEquipment.includes(n));
-  const cards = showAll ? TEMPLATES : recommended.some((t) => t.id === templateId) ? recommended : [...recommended, template];
+  const cards = showAll ? TEMPLATES : isCustom || recommended.some((t) => t.id === templateId) ? recommended : [...recommended, template];
 
   const w = parseFloat(weight);
   const r = parseInt(reps, 10);
@@ -100,12 +134,17 @@ export default function Setup() {
     if (!(r >= 1 && r <= 20)) return setError('횟수는 1~20회 사이로 입력하세요.');
     const bw = parseFloat(bodyWeight);
     if (!(bw >= 30 && bw <= 250)) return setError('몸무게는 30~250kg 사이로 입력하세요.');
-    if (!usable(template)) return setError(`${withJosa(template.name, '은')} ${template.needs.join(', ')}이 있어야 합니다. 다른 시안을 고르세요.`);
-    if (!template.sessions.includes(days.length)) return setError(`${withJosa(template.name, '은')} ${sessionsLabel(template)} 운동합니다. 요일을 ${template.sessions.join('일 또는 ')}일 고르세요.`);
+    if (isCustom) {
+      if (!days.length) return setError('운동하는 요일을 하루 이상 고르세요.');
+      if (review.errors.length) return setError(review.errors[0]);
+    } else {
+      if (!usable(template)) return setError(`${josa(template.name, '은')} ${template.needs.join(', ')}이 있어야 합니다. 다른 시안을 고르세요.`);
+      if (!template.sessions.includes(days.length)) return setError(`${josa(template.name, '은')} ${sessionsLabel(template)} 운동합니다. 요일을 ${template.sessions.join('일 또는 ')}일 고르세요.`);
+    }
     setSaving(true);
     try {
       await createPlan(
-        { baseExerciseId: lift, baseWeight: w, baseReps: r, goal, weeks, days, equipment: fullEquipment, startDate: mondayOf(new Date()), templateId },
+        { baseExerciseId: lift, baseWeight: w, baseReps: r, goal, weeks, days, equipment: fullEquipment, startDate: mondayOf(new Date()), templateId, ...(isCustom ? { custom: customDays } : {}) },
         bw,
       );
       toast('새 계획을 만들었습니다');
@@ -217,19 +256,27 @@ export default function Setup() {
                 </button>
               );
             })}
+            <button type="button" role="radio" aria-checked={isCustom} className={`${styles.card} ${styles.customCard}`} onClick={chooseCustom}>
+              <span className={styles.cardHead}>
+                <b>직접 만들기</b>
+              </span>
+              <span className={styles.cardSum}>요일과 부위를 직접 고릅니다. 무리하지 않게 세트 수는 자동으로 맞춥니다.</span>
+              <span className={styles.cardMeta}>주 1~{LIMITS.maxDays}회 · 하루 {LIMITS.maxExercisesPerDay}종목까지 · 유산소 넣기</span>
+            </button>
           </div>
           <div className={styles.field}>
             <span className={styles.lbl}>
-              운동하는 요일 <span className={styles.hint}>{sessionsLabel(template)} · {days.length}일 고름</span>
+              운동하는 요일 <span className={styles.hint}>{isCustom ? `주 1~${LIMITS.maxDays}회` : sessionsLabel(template)} · {days.length}일 고름</span>
             </span>
             <div className="chips">
               {WEEK.map((d) => (
-                <button type="button" key={d} className="chip" aria-pressed={days.includes(d)} onClick={() => setDays(toggle(days, d))}>
+                <button type="button" key={d} className="chip" aria-pressed={days.includes(d)} onClick={() => toggleDay(d)}>
                   {weekdayLabel(d)}
                 </button>
               ))}
             </div>
           </div>
+          {isCustom && exMap && <CustomBuilder days={customDays} onChange={editCustom} exercises={allExercises} equipment={fullEquipment} review={review} />}
           <div className={styles.field}>
             <span className={styles.lbl}>계획 기간</span>
             <div className="chips">
@@ -243,7 +290,7 @@ export default function Setup() {
           {error && <p className={styles.error} role="alert">{error}</p>}
           {active && <p className="sub">새로 만들면 지금 계획은 끝나고, 지난 운동 기록은 그대로 남습니다.</p>}
           <button className="btn" type="submit" disabled={saving}>
-            {saving ? '계획 만드는 중' : `${withJosa(template.name, '으로')} 계획 만들기`}
+            {saving ? '계획 만드는 중' : isCustom ? '직접 만든 계획으로 시작하기' : `${josa(template.name, '으로')} 계획 만들기`}
           </button>
         </section>
       </form>

@@ -5,7 +5,7 @@ import { useActivePlan, useExerciseMap } from '../db/hooks';
 import type { Weekday } from '../db/types';
 import { weekNumber, weekdayLabel } from '../lib/dates';
 import { progressSeries, weeklyLoads } from '../lib/planGenerator';
-import { getTemplate, isHold } from '../lib/templates';
+import { isHold, templateName } from '../lib/templates';
 import styles from './Plan.module.css';
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
@@ -31,7 +31,6 @@ export default function Plan() {
   const { plan, days } = data;
   const liftName = exMap?.get(plan.baseExerciseId)?.name ?? '';
   const now = Math.min(weekNumber(plan.startDate), plan.weeks);
-  const template = getTemplate(plan.templateId);
   const loads = weeklyLoads(plan.start1RM, plan.target1RM, plan.weeks);
   // 표와 그래프는 실제로 하는 대표 운동 기준 (기준 운동이 없으면 첫 주 운동)
   const series = progressSeries(days, plan.baseExerciseId);
@@ -48,7 +47,7 @@ export default function Plan() {
     <>
       <Band>
         <p>
-          {template.name} · {plan.weeks}주 계획 · {now}주차
+          {templateName(plan.templateId)} · {plan.weeks}주 계획 · {now}주차
         </p>
         <div className={styles.goal}>
           <span className={`num ${styles.big}`}>{plan.start1RM}</span>

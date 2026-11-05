@@ -1,6 +1,8 @@
 // 앱 데이터 타입. 무게는 모두 kg, 날짜는 'YYYY-MM-DD' 문자열.
 
-export type BodyPart = '가슴' | '등' | '하체' | '어깨' | '팔' | '코어';
+export type BodyPart = '가슴' | '등' | '하체' | '어깨' | '팔' | '코어' | '유산소';
+/** 유산소 강도 */
+export type Intensity = '가볍게' | '보통' | '힘들게';
 export type Equipment = '바벨' | '덤벨' | '머신' | '케이블' | '맨몸';
 export type Goal = '근력' | '근비대' | '체중 감량';
 /** 0=일요일 ... 6=토요일 (Date.getDay()와 같음) */
@@ -39,8 +41,26 @@ export interface Plan {
   weeks: number;
   startDate: string;
   active: boolean;
-  /** 고른 계획 시안 id (src/lib/templates.ts) */
+  /** 고른 계획 시안 id (src/lib/templates.ts). 직접 만든 계획은 'custom' */
   templateId?: string;
+  /** 직접 만든 계획의 요일별 구성 (다시 고칠 때 채워 넣는다) */
+  custom?: CustomDay[];
+}
+
+/** 계획에 넣은 유산소 */
+export interface PlannedCardio {
+  exerciseId: string;
+  minutes: number;
+  intensity: Intensity;
+}
+
+/** 직접 만드는 계획의 하루 */
+export interface CustomDay {
+  weekday: Weekday;
+  /** 근력 부위 (유산소는 cardio로 따로) */
+  parts: BodyPart[];
+  exercises: string[];
+  cardio?: PlannedCardio;
 }
 
 export interface PlannedExercise {
@@ -58,6 +78,7 @@ export interface PlanDay {
   weekday: Weekday;
   routineName: string;
   items: PlannedExercise[];
+  cardio?: PlannedCardio[];
 }
 
 export interface SetRecord {
@@ -72,12 +93,21 @@ export interface SessionExercise {
   sets: SetRecord[];
 }
 
+/** 한 유산소 기록 */
+export interface CardioEntry {
+  exerciseId: string;
+  minutes: number;
+  distanceKm?: number;
+  intensity: Intensity;
+}
+
 export interface Session {
   id?: number;
   date: string;
   routineName: string;
   minutes: number;
   exercises: SessionExercise[];
+  cardio?: CardioEntry[];
   memo?: string;
   /** 계획에 따라 한 운동이면 그 계획과 주차 */
   planId?: number;
@@ -100,6 +130,10 @@ export interface Workout {
   /** 첫 세트를 체크한 시각 (ms) */
   startedAt: number;
   exercises: SessionExercise[];
+  /** 유산소 (계획에 있던 것과 직접 추가한 것) */
+  cardio?: (CardioEntry & { done: boolean })[];
+  /** 유산소 시간 재기: 몇 번째 유산소를 언제부터 쟀는지 */
+  cardioClock?: { index: number; startedAt: number };
   planId?: number;
   week?: number;
   rest?: RestTimer;

@@ -31,7 +31,7 @@ npm run build      # 배포용 빌드 (dist)
 - `src/components` 공통 조각 (노란 띠, 하단 탭, 아래 창, 알림, 원판 그림, 휴식 타이머)
 - `src/hooks` 공통 훅 (운동 중 화면 꺼짐 방지)
 - `src/db` 저장소 (Dexie 스키마, 기본 운동 채우기, 백업)
-- `src/data/exercises.ko.json` 기본 운동 59종
+- `src/data/exercises.ko.json` 기본 운동 69종 (근력 59, 유산소 10)
 - `src/lib` 계산 규칙 (1RM, 계획 생성, 계획 시안, 원판 계산, 운동 진행)
 - `src/styles/tokens.css` 색, 글꼴, 간격
 

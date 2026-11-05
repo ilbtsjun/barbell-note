@@ -1,7 +1,9 @@
-import type { Equipment, Exercise, Goal, Plan, PlanDay, PlannedExercise, Weekday } from '../db/types';
+import type { CustomDay, Equipment, Exercise, Goal, Plan, PlanDay, PlannedCardio, PlannedExercise, Weekday } from '../db/types';
+import { pickCardio } from './cardio';
+import { CUSTOM_ID, customRoutineName, LIMITS, planCustomVolume } from './customPlan';
 import { epley1RM, round1, roundTo } from './oneRm';
 import { estimate1RMFor } from './strengthRatios';
-import { getTemplate, isHold, type Slot } from './templates';
+import { getTemplate, isHold, STANDARD, type Slot, type TemplateStyle } from './templates';
 
 /** 12주 기준 목표별 1RM 상승률 (기간에 비례) */
 export const GOAL_RATE: Record<Goal, number> = { 근력: 0.15, 근비대: 0.1, '체중 감량': 0.05 };
@@ -18,9 +20,21 @@ export interface PlanInput {
   equipment: Equipment[];
   /** 'YYYY-MM-DD' 계획 시작 주의 월요일 */
   startDate: string;
-  /** 계획 시안 (없으면 기본 3분할) */
+  /** 계획 시안 (없으면 기본 3분할). 직접 만들면 'custom' */
   templateId?: string;
+  /** 직접 만든 계획의 요일별 구성 */
+  custom?: CustomDay[];
 }
+
+/** 하루 루틴: 종목(세트 수 포함)과 유산소 */
+interface DaySpec {
+  name: string;
+  items: { id: string; main: boolean; sets: number }[];
+  cardio?: PlannedCardio[];
+}
+
+/** 직접 만든 계획의 횟수와 쉬는 시간 (세트 수는 planCustomVolume이 정한다) */
+const CUSTOM_STYLE: TemplateStyle = { ...STANDARD };
 
 export interface WeekLoad {
   week: number;
@@ -70,56 +84,87 @@ const weekOrder = (d: Weekday) => (d === 0 ? 7 : d);
 
 /** 입력한 기록과 고른 시안으로 계획 전체(주차 x 요일 x 종목)를 만든다. 순수 함수라 저장은 하지 않는다. */
 export function generatePlan(input: PlanInput, exercises: Exercise[]): { plan: Omit<Plan, 'id'>; days: Omit<PlanDay, 'id' | 'planId'>[] } {
+  const custom = input.templateId === CUSTOM_ID && input.custom?.length ? input.custom : null;
   const template = getTemplate(input.templateId);
-  const { style } = template;
-  const scale = style.loadScale ?? 1;
-  const equipment = template.only ? input.equipment.filter((e) => template.only!.includes(e)) : input.equipment;
+  const style: TemplateStyle = custom ? CUSTOM_STYLE : template.style;
+  const equipment = !custom && template.only ? input.equipment.filter((e) => template.only!.includes(e)) : input.equipment;
   const byId = new Map(exercises.map((e) => [e.id, e]));
   const start1RM = epley1RM(input.baseWeight, input.baseReps);
   const target1RM = targetFor(start1RM, input.goal, input.weeks);
   const loads = weeklyLoads(start1RM, target1RM, input.weeks);
-  const days = [...input.days].sort((a, b) => weekOrder(a) - weekOrder(b));
 
-  // 루틴마다 쓸 종목을 한 번만 고른다 (매주 같은 종목으로 진행).
-  const chosen = template.routines.map((r) => {
-    const used = new Set<string>();
-    const items = r.slots
-      .map((slot) => {
-        const id = pick(slot, byId, equipment, used);
-        if (id) used.add(id);
-        return id ? { id, main: !!slot.main } : null;
-      })
-      .filter((x): x is { id: string; main: boolean } => !!x);
-    return { name: r.name, items };
-  });
+  // 요일별로 할 루틴 (매주 같은 종목으로 진행)
+  let weekdays: Weekday[];
+  let routineFor: (weekday: Weekday, session: number) => DaySpec;
+  let startScale = 1;
+  if (custom) {
+    const volume = planCustomVolume(custom, byId);
+    startScale = volume.startScale;
+    const specs = new Map(
+      volume.days.map((d) => {
+        const src = custom.find((c) => c.weekday === d.weekday)!;
+        return [d.weekday, { name: customRoutineName(src, byId), items: d.items.map((i) => ({ id: i.exerciseId, main: i.main, sets: i.sets })), cardio: src.cardio ? [src.cardio] : undefined }];
+      }),
+    );
+    weekdays = volume.days.map((d) => d.weekday);
+    routineFor = (weekday) => specs.get(weekday)!;
+  } else {
+    const chosen: DaySpec[] = template.routines.map((r) => {
+      const used = new Set<string>();
+      const items = r.slots
+        .map((slot) => {
+          const id = pick(slot, byId, equipment, used);
+          if (id) used.add(id);
+          return id ? { id, main: !!slot.main, sets: slot.main ? style.mainSets : style.accSets } : null;
+        })
+        .filter((x): x is DaySpec['items'][number] => !!x);
+      const cardioId = r.cardio && pickCardio(r.cardio.options, (id) => byId.get(id)?.equipment, equipment);
+      return { name: r.name, items, cardio: cardioId && r.cardio ? [{ exerciseId: cardioId, minutes: r.cardio.minutes, intensity: r.cardio.intensity }] : undefined };
+    });
+    weekdays = [...input.days].sort((a, b) => weekOrder(a) - weekOrder(b));
+    routineFor = (_weekday, session) => chosen[session % chosen.length]; // 주가 바뀌어도 이어서 돌린다 (A B A / B A B)
+  }
+  const scale = style.loadScale ?? 1;
 
   const out: Omit<PlanDay, 'id' | 'planId'>[] = [];
-  let session = 0; // 루틴은 주가 바뀌어도 이어서 돌린다 (A B A / B A B)
+  let session = 0;
   for (const load of loads) {
     const progress = load.est1RM / start1RM; // 기준 운동이 오른 만큼 다른 운동도 같이 올린다
-    for (const weekday of days) {
-      const routine = chosen[session++ % chosen.length];
-      const items: PlannedExercise[] = routine.items.map(({ id, main }) => {
+    const weekScale = scale * (load.week <= LIMITS.easyStartWeeks ? startScale : 1);
+    for (const weekday of weekdays) {
+      const routine = routineFor(weekday, session++);
+      const items: PlannedExercise[] = routine.items.map(({ id, main, sets }) => {
         const e = byId.get(id)!;
         const isBase = id === input.baseExerciseId;
-        const est = (isBase ? load.est1RM : estimate1RMFor(id, input.baseExerciseId, start1RM) * progress) * scale;
+        const est = (isBase ? load.est1RM : estimate1RMFor(id, input.baseExerciseId, start1RM) * progress) * weekScale;
         const weightAt = (pct: number) => (est ? roundTo(est * pct, stepFor(e)) : 0);
         if (main) {
           const reps = style.mainReps ?? load.reps;
           const pct = style.mainPct !== undefined ? style.mainPct - (load.deload ? 0.1 : 0) : load.pct;
-          return { exerciseId: id, sets: style.mainSets, reps, weight: weightAt(pct), restSec: style.mainRestSec ?? (reps <= 4 ? 150 : 120) };
+          return { exerciseId: id, sets, reps, weight: weightAt(pct), restSec: style.mainRestSec ?? (reps <= 4 ? 150 : 120) };
         }
         const reps = isHold(id) ? 30 : e.equipment === '맨몸' ? Math.max(style.accReps, 12) : style.accReps;
-        return { exerciseId: id, sets: style.accSets, reps, weight: weightAt(load.deload ? 0.55 : 0.65), restSec: style.accRestSec };
+        return { exerciseId: id, sets, reps, weight: weightAt(load.deload ? 0.55 : 0.65), restSec: style.accRestSec };
       });
-      out.push({ week: load.week, weekday, routineName: routine.name, items });
+      const day: Omit<PlanDay, 'id' | 'planId'> = { week: load.week, weekday, routineName: routine.name, items };
+      if (routine.cardio?.length) day.cardio = routine.cardio.map((c) => ({ ...c }));
+      out.push(day);
     }
   }
 
-  return {
-    plan: { baseExerciseId: input.baseExerciseId, baseWeight: input.baseWeight, baseReps: input.baseReps, start1RM, target1RM, weeks: input.weeks, startDate: input.startDate, active: true, templateId: template.id },
-    days: out,
+  const plan: Omit<Plan, 'id'> = {
+    baseExerciseId: input.baseExerciseId,
+    baseWeight: input.baseWeight,
+    baseReps: input.baseReps,
+    start1RM,
+    target1RM,
+    weeks: input.weeks,
+    startDate: input.startDate,
+    active: true,
+    templateId: custom ? CUSTOM_ID : template.id,
   };
+  if (custom) plan.custom = custom;
+  return { plan, days: out };
 }
 
 /**

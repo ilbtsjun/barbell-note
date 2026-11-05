@@ -3,14 +3,21 @@ import { describe, expect, it } from 'vitest';
 import { BarbellDB } from '../src/db/schema';
 import { finishWorkout, getWorkout, saveWorkout } from '../src/db/workoutRepo';
 import {
+  addCardio,
+  cardioDone,
+  cardioLeft,
+  cardioOnlyWorkout,
+  clockSeconds,
   durationMinutes,
   editSet,
   nextOpenExercise,
   nextSet,
+  removeCardio,
   restLeft,
   setsLeft,
   toggleSet,
   toSession,
+  updateCardio,
   weightStep,
   workoutFromDay,
 } from '../src/lib/workout';
@@ -109,5 +116,48 @@ describe('workoutRepo', () => {
     expect(await finishWorkout('', 5000, db)).toBeNull();
     expect(await getWorkout(db)).toBeUndefined();
     expect(await db.sessions.count()).toBe(0);
+  });
+});
+
+describe('유산소', () => {
+  const cardioDay = { ...day, cardio: [{ exerciseId: 'treadmill', minutes: 20, intensity: '보통' as const }] };
+  const run = { exerciseId: 'running', minutes: 30, intensity: '힘들게' as const };
+
+  it('계획의 유산소를 안 한 상태로 가져온다', () => {
+    expect(workoutFromDay(cardioDay, '2026-11-04', 1000).cardio).toEqual([{ exerciseId: 'treadmill', minutes: 20, intensity: '보통', done: false }]);
+    expect(fresh()).not.toHaveProperty('cardio');
+  });
+  it('유산소만 하는 날', () => {
+    expect(cardioOnlyWorkout(run, '2026-11-04', 1000)).toMatchObject({ routineName: '유산소', exercises: [], cardio: [{ ...run, done: false }] });
+  });
+  it('추가, 고치기, 개수', () => {
+    let w = addCardio(fresh(), run);
+    w = addCardio(w, run);
+    w = updateCardio(w, 0, { minutes: 25, done: true });
+    expect(w.cardio![0]).toMatchObject({ minutes: 25, done: true });
+    expect([cardioDone(w), cardioLeft(w)]).toEqual([1, 1]);
+  });
+  it('빼면 재던 시간도 맞춘다', () => {
+    const w: Workout = { ...addCardio(addCardio(fresh(), run), run), cardioClock: { index: 1, startedAt: 5000 } };
+    expect(removeCardio(w, 0).cardioClock).toEqual({ index: 0, startedAt: 5000 });
+    expect(removeCardio(w, 1)).not.toHaveProperty('cardioClock');
+    expect(removeCardio(w, 1).cardio).toHaveLength(1);
+  });
+  it('잰 시간(초)', () => {
+    expect(clockSeconds({ cardioClock: { index: 0, startedAt: 1000 } }, 1000 + 95_500)).toBe(95);
+    expect(clockSeconds({}, 5000)).toBe(0);
+  });
+  it('기록에는 끝낸 유산소만, 완료 표시 없이', () => {
+    const w = updateCardio(addCardio(addCardio(fresh(), run), { ...run, exerciseId: 'walking' }), 1, { done: true });
+    expect(toSession(w, 1000 + 30 * MIN).cardio).toEqual([{ exerciseId: 'walking', minutes: 30, intensity: '힘들게' }]);
+    expect(toSession(fresh(), 2000)).not.toHaveProperty('cardio');
+  });
+  it('유산소만 끝내도 기록으로 남고, 안 했으면 남지 않는다', async () => {
+    const db = new BarbellDB('test-workout-3');
+    await saveWorkout(updateCardio(cardioOnlyWorkout(run, '2026-11-04', 1000), 0, { done: true }), db);
+    const id = await finishWorkout('', 1000 + 31 * MIN, db);
+    expect(await db.sessions.get(id!)).toMatchObject({ routineName: '유산소', exercises: [], cardio: [run], minutes: 31 });
+    await saveWorkout(cardioOnlyWorkout(run, '2026-11-05', 1000), db);
+    expect(await finishWorkout('', 5000, db)).toBeNull();
   });
 });

@@ -86,3 +86,19 @@ tr[data-state='done'] .v { color: var(--go); }
   @keyframes slam { 0% { transform: scale(0.88); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
   @keyframes pop { 0% { transform: scale(0.4); } 100% { transform: scale(1); } }
 }
+
+/* 유산소 */
+.cardioHead { display: flex; justify-content: space-between; align-items: center; padding: 16px var(--gutter-r) 6px var(--gutter-l); border-top: 8px solid var(--sunken); }
+.cardioRow { width: 100%; display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 12px var(--gutter-r) 12px var(--gutter-l); text-align: left; border-top: 1px solid var(--line); }
+.cardioRow:first-of-type { border-top: 0; }
+.cardioRow[data-done] .exNo { background: var(--go); color: #fff; box-shadow: none; }
+.cardioRow[data-running] .exNo { background: var(--sun); color: var(--ink); box-shadow: none; }
+.cardioGo { font-size: 13px; font-weight: 700; color: var(--ink); }
+.cardioRun { font-family: var(--f-num); font-size: 22px; font-weight: 700; }
+.clock { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; background: var(--sunken); border-radius: 14px; padding: 12px 14px; }
+.clock[data-running] { background: var(--sun-soft); box-shadow: inset 0 0 0 2px var(--sun-deep); }
+.clockNum { font-size: 40px; font-weight: 800; line-height: 1; }
+.cardioGrid { display: grid; grid-template-columns: 40px 1fr 40px 1fr; gap: 10px; align-items: center; }
+.unitInput { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.addRow { padding: 8px var(--gutter-r) 0 var(--gutter-l); }

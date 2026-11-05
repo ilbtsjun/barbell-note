@@ -8,7 +8,7 @@ import { db } from '../db/schema';
 import type { BodyPart, Equipment, Exercise } from '../db/types';
 import styles from './Library.module.css';
 
-const PARTS: BodyPart[] = ['가슴', '등', '하체', '어깨', '팔', '코어'];
+const PARTS: BodyPart[] = ['가슴', '등', '하체', '어깨', '팔', '코어', '유산소'];
 const EQUIPMENT: Equipment[] = ['바벨', '덤벨', '머신', '케이블', '맨몸'];
 
 export default function Library() {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Band } from '../components/Band';
 import { EmptyState } from '../components/EmptyState';
@@ -9,7 +9,8 @@ import type { Exercise, PlanDay, Session } from '../db/types';
 import { fromISODate, koreanDate, toISODate, weekNumber, weekdayLabel } from '../lib/dates';
 import { setsSummary } from '../lib/stats';
 import { isHold } from '../lib/templates';
-import { workoutFromDay } from '../lib/workout';
+import { cardioKcal, distanceLabel } from '../lib/cardio';
+import { cardioOnlyWorkout, workoutFromDay } from '../lib/workout';
 import styles from './Today.module.css';
 import { WorkoutView } from './WorkoutView';
 
@@ -27,6 +28,22 @@ export default function Today() {
   const sessions = useSessionsOn(todayISO);
   const navigate = useNavigate();
   const toast = useToast();
+
+  /** 근력 운동 없이 유산소만 기록하기 */
+  async function startCardio() {
+    const machine = profile?.equipment.includes('머신');
+    try {
+      await saveWorkout(cardioOnlyWorkout({ exerciseId: machine ? 'treadmill' : 'walking', minutes: 20, intensity: '보통' }, toISODate(new Date()), Date.now()));
+    } catch (err) {
+      console.error(err);
+      toast('유산소를 시작하지 못했습니다. 다시 눌러 주세요');
+    }
+  }
+  const cardioButton = (
+    <button type="button" className="btn line" onClick={startCardio}>
+      유산소만 기록하기
+    </button>
+  );
 
   // 처음 설치하고 열면 능력 입력 화면부터 보여준다 (한 번만).
   useEffect(() => {
@@ -57,7 +74,7 @@ export default function Today() {
     );
   }
 
-  if (sessions.length) return <DoneToday sessions={sessions} exMap={exMap} today={today} />;
+  if (sessions.length) return <DoneToday sessions={sessions} exMap={exMap} today={today} bodyWeight={profile?.bodyWeight ?? 70} cardioButton={cardioButton} />;
 
   if (data === null) {
     return (
@@ -67,8 +84,18 @@ export default function Today() {
           <h1>오늘 할 운동이 아직 없어요</h1>
           <p>최근에 든 무게를 알려주시면 계획을 짜서 여기에 매일 할 운동을 띄워 드립니다.</p>
         </Band>
-        <EmptyState title="계획부터 만들어요" action={<Link to="/setup" className="btn">내 운동능력 입력하기</Link>}>
-          기준 운동 하나의 무게와 횟수, 운동하는 요일만 있으면 됩니다.
+        <EmptyState
+          title="계획부터 만들어요"
+          action={
+            <>
+              <Link to="/setup" className="btn">
+                내 운동능력 입력하기
+              </Link>
+              {cardioButton}
+            </>
+          }
+        >
+          기준 운동 하나의 무게와 횟수, 운동하는 요일만 있으면 됩니다. 계획 없이 유산소만 기록할 수도 있습니다.
         </EmptyState>
       </>
     );
@@ -128,23 +155,26 @@ export default function Today() {
             <span className={styles.pickGo}>시작</span>
           </button>
         ))}
+        {cardioButton}
       </section>
     </>
   );
 }
 
 /** 오늘 저장한 운동 요약 */
-function DoneToday({ sessions, exMap, today }: { sessions: Session[]; exMap: Map<string, Exercise>; today: Date }) {
+function DoneToday({ sessions, exMap, today, bodyWeight, cardioButton }: { sessions: Session[]; exMap: Map<string, Exercise>; today: Date; bodyWeight: number; cardioButton: ReactNode }) {
   const last = sessions[sessions.length - 1];
   const sets = sessions.reduce((a, s) => a + s.exercises.reduce((b, e) => b + e.sets.length, 0), 0);
   const minutes = sessions.reduce((a, s) => a + s.minutes, 0);
+  const cardio = sessions.flatMap((s) => (s.cardio ?? []).map((c, i) => ({ ...c, key: `${s.id}-c${i}` })));
   return (
     <>
       <Band>
         <p>{koreanDate(today)}</p>
         <h1>오늘 운동 완료</h1>
         <p>
-          {sessions.map((s) => s.routineName).join(', ')} · {minutes}분 · {sets}세트
+          {sessions.map((s) => s.routineName).join(', ')} · {minutes}분{sets ? ` · ${sets}세트` : ''}
+          {cardio.length ? ` · 유산소 ${cardio.reduce((a, c) => a + c.minutes, 0)}분` : ''}
         </p>
       </Band>
       <section className="sec">
@@ -164,8 +194,21 @@ function DoneToday({ sessions, exMap, today }: { sessions: Session[]; exMap: Map
               );
             }),
           )}
+          {cardio.map((c) => (
+            <div key={c.key} className={styles.row}>
+              <b>{exMap.get(c.exerciseId)?.name ?? c.exerciseId}</b>
+              <span className="num" style={{ fontWeight: 700, fontSize: 18 }}>
+                {c.minutes}분
+              </span>
+              <span className={styles.rowSets}>
+                {c.intensity}
+                {distanceLabel(c.distanceKm)} · 약 {cardioKcal(c, bodyWeight)}kcal
+              </span>
+            </div>
+          ))}
         </div>
         {last.memo && <p className={styles.memoText}>{last.memo}</p>}
+        {cardioButton}
         <Link to="/plan" className="btn line">
           다음 운동 보기
         </Link>

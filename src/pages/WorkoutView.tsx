@@ -6,11 +6,29 @@ import { RestTimer } from '../components/RestTimer';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 import { discardWorkout, finishWorkout, saveWorkout } from '../db/workoutRepo';
-import type { Exercise, Profile, Workout } from '../db/types';
+import type { CardioEntry, Exercise, Profile, Workout } from '../db/types';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { beep, buzz, primeAudio } from '../lib/alert';
+import { byCardioOrder, cardioKcal, distanceLabel } from '../lib/cardio';
 import { isHold } from '../lib/templates';
-import { durationMinutes, editSet, isExerciseDone, nextOpenExercise, nextSet, setsDone, setsLeft, toggleSet, weightStep } from '../lib/workout';
+import {
+  addCardio,
+  cardioDone,
+  cardioLeft,
+  clockSeconds,
+  durationMinutes,
+  editSet,
+  isExerciseDone,
+  nextOpenExercise,
+  nextSet,
+  removeCardio,
+  setsDone,
+  setsLeft,
+  toggleSet,
+  updateCardio,
+  weightStep,
+} from '../lib/workout';
+import { CardioSheet, clockLabel, useNow } from './CardioSheet';
 import styles from './Today.module.css';
 
 interface Props {
@@ -32,6 +50,7 @@ export function WorkoutView({ initial, saved: savedAtStart, exMap, profile, head
   const [open, setOpen] = useState(() => Math.max(0, initial.exercises.findIndex((e) => !isExerciseDone(e))));
   const [editing, setEditing] = useState<{ ex: number; set: number } | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [cardioOpen, setCardioOpen] = useState<number | null>(null);
   const pending = useRef<Promise<unknown>>(Promise.resolve());
   const listRef = useRef<HTMLDivElement>(null);
   useWakeLock(saved);
@@ -102,22 +121,54 @@ export function WorkoutView({ initial, saved: savedAtStart, exMap, profile, head
 
   const left = setsLeft(w);
   const done = setsDone(w);
+  const cardio = w.cardio ?? [];
+  const cDone = cardioDone(w);
+  const cLeft = cardioLeft(w);
+  const bodyWeight = profile?.bodyWeight ?? 70;
+  const cardioExercises = [...exMap.values()].filter((e) => e.part === '유산소').sort(byCardioOrder);
+  const now = useNow(!!w.cardioClock);
+
+  function newCardio() {
+    const last = cardio[cardio.length - 1];
+    const fallback = profile?.equipment.includes('머신') ? 'treadmill' : 'walking';
+    const entry: CardioEntry = { exerciseId: last?.exerciseId ?? fallback, minutes: 20, intensity: last?.intensity ?? '보통' };
+    commit(addCardio(w, entry));
+    setCardioOpen(cardio.length);
+  }
+
+  function stopClock() {
+    const sec = clockSeconds(w, Date.now());
+    const next = { ...w };
+    delete next.cardioClock;
+    commit(next);
+    return sec;
+  }
+
+  const summary = [
+    w.exercises.length ? `${w.exercises.length}종목 · ${left ? `${left}세트 남음` : '근력 끝'}` : '',
+    cardio.length ? `유산소 ${cLeft ? `${cLeft}개 남음` : '끝'}` : '',
+  ].filter(Boolean);
 
   return (
     <>
       <Band>
         <p>{heading}</p>
         <h1>오늘은 {w.routineName}</h1>
-        <p>
-          {w.exercises.length}종목 · {left ? `${left}세트 남음` : '모두 끝났습니다'}
-        </p>
-        <div className={styles.strip} style={{ gridTemplateColumns: `repeat(${w.exercises.length}, 1fr)` }} aria-hidden="true">
-          {w.exercises.map((e) => (
-            <span key={e.exerciseId}>
-              <i style={{ transform: `scaleX(${e.sets.filter((s) => s.done).length / (e.sets.length || 1)})` }} />
-            </span>
-          ))}
-        </div>
+        <p>{left + cLeft === 0 && done + cDone > 0 ? '모두 끝났습니다' : summary.join(' · ') || '유산소를 추가해 기록하세요'}</p>
+        {w.exercises.length + cardio.length > 0 && (
+          <div className={styles.strip} style={{ gridTemplateColumns: `repeat(${w.exercises.length + cardio.length}, 1fr)` }} aria-hidden="true">
+            {w.exercises.map((e) => (
+              <span key={e.exerciseId}>
+                <i style={{ transform: `scaleX(${e.sets.filter((s) => s.done).length / (e.sets.length || 1)})` }} />
+              </span>
+            ))}
+            {cardio.map((c, i) => (
+              <span key={`c${i}`}>
+                <i style={{ transform: `scaleX(${c.done ? 1 : 0})` }} />
+              </span>
+            ))}
+          </div>
+        )}
       </Band>
 
       <div ref={listRef}>
@@ -212,10 +263,49 @@ export function WorkoutView({ initial, saved: savedAtStart, exMap, profile, head
         })}
       </div>
 
-      {(saved || done > 0) && (
+      {cardio.length > 0 && (
+        <div className={styles.cardioHead}>
+          <h2 className="sec-title">유산소</h2>
+          <span className="sub">{cardio.reduce((a, c) => a + c.minutes, 0)}분</span>
+        </div>
+      )}
+      <div>
+        {cardio.map((c, i) => {
+          const running = w.cardioClock?.index === i;
+          return (
+            <button
+              type="button"
+              key={i}
+              className={styles.cardioRow}
+              data-done={c.done || undefined}
+              data-running={running || undefined}
+              onClick={() => setCardioOpen(i)}
+              aria-label={`${name(c.exerciseId)} ${c.done ? '기록 고치기' : '기록하기'}`}
+            >
+              <span className={styles.exNo}>{c.done ? <Icon name="check" size={18} stroke={2.4} /> : w.exercises.length + i + 1}</span>
+              <span>
+                <span className={styles.exName}>{name(c.exerciseId)}</span>
+                <br />
+                <span className={styles.exMeta}>
+                  {c.done ? '' : '목표 '}
+                  {c.minutes}분{distanceLabel(c.distanceKm)} · {c.intensity} · 약 {cardioKcal(c, bodyWeight)}kcal
+                </span>
+              </span>
+              {running ? <span className={styles.cardioRun}>{clockLabel(clockSeconds(w, now))}</span> : <span className={styles.cardioGo}>{c.done ? '고치기' : '기록'}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className={styles.addRow}>
+        <button type="button" className="btn line" onClick={newCardio}>
+          유산소 추가
+        </button>
+      </div>
+
+      {(saved || done + cDone > 0) && (
         <div className="sec" style={{ borderBottom: 0 }}>
-          <button type="button" className={left ? 'btn line' : 'btn'} onClick={() => setFinishing(true)}>
-            {left ? '운동 끝내기' : '오늘 운동 저장하기'}
+          <button type="button" className={left + cLeft ? 'btn line' : 'btn'} onClick={() => setFinishing(true)}>
+            {left + cLeft ? '운동 끝내기' : '오늘 운동 저장하기'}
           </button>
         </div>
       )}
@@ -239,11 +329,35 @@ export function WorkoutView({ initial, saved: savedAtStart, exMap, profile, head
         />
       )}
 
+      {cardioOpen !== null && cardio[cardioOpen] && (
+        <CardioSheet
+          key={cardioOpen}
+          entry={cardio[cardioOpen]}
+          cardioExercises={cardioExercises}
+          bodyWeight={bodyWeight}
+          clockStartedAt={w.cardioClock?.index === cardioOpen ? w.cardioClock.startedAt : undefined}
+          onStartClock={() => commit({ ...w, cardioClock: { index: cardioOpen, startedAt: Date.now() } })}
+          onStopClock={stopClock}
+          onSave={(entry) => {
+            const base = { ...w };
+            if (base.cardioClock?.index === cardioOpen) delete base.cardioClock;
+            commit(updateCardio(base, cardioOpen, { ...entry, done: true }));
+            setCardioOpen(null);
+          }}
+          onRemove={() => {
+            commit(removeCardio(w, cardioOpen));
+            setCardioOpen(null);
+          }}
+          onClose={() => setCardioOpen(null)}
+        />
+      )}
+
       {finishing && (
         <FinishSheet
           minutes={durationMinutes(w.startedAt, Date.now())}
           done={done}
           left={left}
+          cardioDone={cDone}
           onClose={() => setFinishing(false)}
           onFinish={finish}
           onDiscard={discard}
@@ -304,7 +418,7 @@ function EditSetSheet(props: {
   );
 }
 
-function FinishSheet(props: { minutes: number; done: number; left: number; onClose: () => void; onFinish: (memo: string) => Promise<void>; onDiscard: () => Promise<void> }) {
+function FinishSheet(props: { minutes: number; done: number; left: number; cardioDone: number; onClose: () => void; onFinish: (memo: string) => Promise<void>; onDiscard: () => Promise<void> }) {
   const [memo, setMemo] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -324,12 +438,19 @@ function FinishSheet(props: { minutes: number; done: number; left: number; onClo
         <span>
           <b className="num">{props.minutes}</b>분
         </span>
-        <span>
-          <b className="num">{props.done}</b>세트 완료
-        </span>
+        {props.done > 0 && (
+          <span>
+            <b className="num">{props.done}</b>세트
+          </span>
+        )}
+        {props.cardioDone > 0 && (
+          <span>
+            유산소 <b className="num">{props.cardioDone}</b>개
+          </span>
+        )}
       </p>
-      {props.left > 0 && props.done > 0 && <p className="sub">남은 {props.left}세트는 하지 않은 것으로 저장합니다.</p>}
-      {props.done > 0 && (
+      {props.left > 0 && props.done + props.cardioDone > 0 && <p className="sub">남은 {props.left}세트는 하지 않은 것으로 저장합니다.</p>}
+      {props.done + props.cardioDone > 0 && (
         <>
           <label htmlFor="finish-memo" className={styles.stepLbl}>
             메모 (선택)

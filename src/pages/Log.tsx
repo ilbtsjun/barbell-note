@@ -4,12 +4,13 @@ import { Band } from '../components/Band';
 import { EmptyState } from '../components/EmptyState';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
-import { useActivePlan, useExerciseMap, useSessions } from '../db/hooks';
+import { useActivePlan, useExerciseMap, useProfile, useSessions } from '../db/hooks';
 import { deleteSession, updateSessionMemo } from '../db/recordRepo';
 import type { Exercise, Session } from '../db/types';
 import { addDays, fromISODate, mondayOf, monthCells, planDayDate, toISODate, weekNumber, weekdayLabel } from '../lib/dates';
 import { daysTrained, personalRecords, sessionSets, sessionVolume, setsSummary, topSet } from '../lib/stats';
 import { isHold } from '../lib/templates';
+import { cardioKcal, distanceLabel } from '../lib/cardio';
 import styles from './Log.module.css';
 
 const DOW_MON = [1, 2, 3, 4, 5, 6, 0];
@@ -136,6 +137,9 @@ export default function Log() {
           const d = fromISODate(s.date);
           const top = topSet(s);
           const pr = s.id !== undefined ? prs.get(s.id) : undefined;
+          const names = [...s.exercises.map((e) => e.exerciseId), ...(s.cardio ?? []).map((c) => c.exerciseId)].map((id) => exMap.get(id)?.name ?? id);
+          const sets = sessionSets(s);
+          const cardioMin = (s.cardio ?? []).reduce((a, c) => a + c.minutes, 0);
           return (
             <button type="button" key={s.id} className={styles.session} onClick={() => setOpenId(s.id ?? null)}>
               <span className={styles.date}>
@@ -147,14 +151,23 @@ export default function Log() {
               <span style={{ minWidth: 0 }}>
                 <b className={styles.t}>{s.routineName}</b>
                 <span className="sub">
-                  {s.exercises
-                    .slice(0, 3)
-                    .map((e) => exMap.get(e.exerciseId)?.name ?? e.exerciseId)
-                    .join(', ')}
-                  {s.exercises.length > 3 ? ` 외 ${s.exercises.length - 3}개` : ''}
+                  {names.slice(0, 3).join(', ')}
+                  {names.length > 3 ? ` 외 ${names.length - 3}개` : ''}
                 </span>
                 <span className="sub">
-                  <b className={`num ${styles.n}`}>{s.minutes}</b>분 · <b className={`num ${styles.n}`}>{sessionSets(s)}</b>세트
+                  <b className={`num ${styles.n}`}>{s.minutes}</b>분
+                  {sets ? (
+                    <>
+                      {' '}
+                      · <b className={`num ${styles.n}`}>{sets}</b>세트
+                    </>
+                  ) : null}
+                  {cardioMin ? (
+                    <>
+                      {' '}
+                      · 유산소 <b className={`num ${styles.n}`}>{cardioMin}</b>분
+                    </>
+                  ) : null}
                   {top ? (
                     <>
                       {' '}
@@ -181,6 +194,8 @@ export default function Log() {
 
 function SessionSheet({ session, exMap, onClose }: { session: Session; exMap: Map<string, Exercise>; onClose: () => void }) {
   const toast = useToast();
+  const bodyWeight = useProfile()?.bodyWeight ?? 70;
+  const volume = sessionVolume(session);
   const [memo, setMemo] = useState(session.memo ?? '');
   const [confirm, setConfirm] = useState(false);
   const d = fromISODate(session.date);
@@ -213,7 +228,7 @@ function SessionSheet({ session, exMap, onClose }: { session: Session; exMap: Ma
       <div>
         <h2 className={styles.sheetTitle}>{session.routineName}</h2>
         <span className="sub">
-          {d.getMonth() + 1}월 {d.getDate()}일 {weekdayLabel(d.getDay())}요일 · {session.minutes}분 · 총 {sessionVolume(session).toLocaleString()}kg
+          {d.getMonth() + 1}월 {d.getDate()}일 {weekdayLabel(d.getDay())}요일 · {session.minutes}분{volume ? ` · 총 ${volume.toLocaleString()}kg` : ''}
         </span>
       </div>
       <div>
@@ -221,6 +236,15 @@ function SessionSheet({ session, exMap, onClose }: { session: Session; exMap: Ma
           <div key={e.exerciseId} className={styles.exRow}>
             <b>{exMap.get(e.exerciseId)?.name ?? e.exerciseId}</b>
             <span className="sub">{setsSummary(e.sets, isHold(e.exerciseId) ? '초' : '회')}</span>
+          </div>
+        ))}
+        {(session.cardio ?? []).map((c, i) => (
+          <div key={`c${i}`} className={styles.exRow}>
+            <b>{exMap.get(c.exerciseId)?.name ?? c.exerciseId}</b>
+            <span className="sub">
+              {c.minutes}분 · {c.intensity}
+              {distanceLabel(c.distanceKm)} · 약 {cardioKcal(c, bodyWeight)}kcal
+            </span>
           </div>
         ))}
       </div>

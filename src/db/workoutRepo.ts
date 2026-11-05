@@ -16,7 +16,7 @@ export async function finishWorkout(memo: string, now = Date.now(), database: Ba
     if (!w) return null;
     const session = toSession(w, now, memo);
     await database.workout.delete('current');
-    if (!session.exercises.length) return null;
+    if (!session.exercises.length && !session.cardio?.length) return null;
     return database.sessions.add(session);
   });
 }

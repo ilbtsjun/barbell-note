@@ -4,10 +4,11 @@ import { DataSection } from '../components/DataSection';
 import { LineChart } from '../components/LineChart';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
-import { useActivePlan, useBodyWeights, useExerciseMap, useSessions } from '../db/hooks';
+import { useActivePlan, useBodyWeights, useExerciseMap, useProfile, useSessions } from '../db/hooks';
 import { saveBodyWeight } from '../db/recordRepo';
-import type { Exercise } from '../db/types';
-import { addDays, fromISODate, toISODate, weekNumber } from '../lib/dates';
+import type { Exercise, Session } from '../db/types';
+import { cardioTotals, WEEKLY_CARDIO_GOAL } from '../lib/cardio';
+import { addDays, fromISODate, mondayOf, toISODate, weekNumber } from '../lib/dates';
 import { weeklyLoads } from '../lib/planGenerator';
 import { hoursLabel, liftHistory, liftSummaries, weightChange, type LiftSummary } from '../lib/stats';
 import styles from './Stats.module.css';
@@ -25,6 +26,7 @@ export default function Stats() {
   const weights = useBodyWeights();
   const active = useActivePlan();
   const exMap = useExerciseMap();
+  const profile = useProfile();
   const toast = useToast();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
@@ -113,6 +115,8 @@ export default function Stats() {
         )}
       </section>
 
+      <CardioSection sessions={sessions} bodyWeight={weights[weights.length - 1]?.weight ?? profile?.bodyWeight ?? 70} />
+
       {active && <GoalSection plan={active.plan} sessions={sessions} liftName={name(active.plan.baseExerciseId)} />}
 
       <section className="sec" style={{ gap: 0 }}>
@@ -143,6 +147,63 @@ export default function Stats() {
 
       {openLift && <LiftSheet lift={lifts.find((l) => l.exerciseId === openLift)!} exercise={exMap.get(openLift)} onClose={() => setOpenLift(null)} />}
     </>
+  );
+}
+
+/** 유산소: 이번 주 권장 150분 대비, 최근 4주 */
+function CardioSection({ sessions, bodyWeight }: { sessions: Session[]; bodyWeight: number }) {
+  const monday = mondayOf(new Date());
+  const weeks = [0, 1, 2, 3].map((i) => {
+    const from = addDays(monday, -7 * i);
+    return { from, ...cardioTotals(sessions, from, addDays(from, 6), bodyWeight) };
+  });
+  const now = weeks[0];
+  const left = Math.max(0, WEEKLY_CARDIO_GOAL - now.credit);
+  const pct = (v: number) => `${Math.min(100, (v / WEEKLY_CARDIO_GOAL) * 100)}%`;
+  const hasAny = weeks.some((w) => w.count > 0);
+
+  return (
+    <section className="sec">
+      <div className={styles.head}>
+        <h2 className="sec-title">유산소</h2>
+        <span className="sub">이번 주 권장 {WEEKLY_CARDIO_GOAL}분</span>
+      </div>
+      <div className={styles.goal}>
+        <div className={styles.goalNums}>
+          <span>
+            <small>이번 주 (분)</small>
+            <b className="num">{now.credit}</b>
+          </span>
+          <span>
+            <small>거리 (km)</small>
+            <b className="num">{now.distanceKm ? fmt(now.distanceKm) : '-'}</b>
+          </span>
+          <span>
+            <small>소모 (약 kcal)</small>
+            <b className="num">{now.kcal.toLocaleString()}</b>
+          </span>
+        </div>
+        <div className={styles.goalBar} role="img" aria-label={`이번 주 유산소 ${now.credit}분, 권장 ${WEEKLY_CARDIO_GOAL}분`}>
+          <span className={styles.goalFill} style={{ width: pct(now.credit) }} />
+        </div>
+        <p className="sub">
+          {left ? `${left}분 더 하면 이번 주 권장량을 채웁니다.` : '이번 주 권장량을 채웠습니다.'} 힘들게 한 시간은 2배로 칩니다.
+        </p>
+      </div>
+      {hasAny && (
+        <div>
+          {weeks.map((w, i) => (
+            <div key={w.from} className={styles.pt}>
+              <span>{i === 0 ? '이번 주' : i === 1 ? '지난주' : `${md(w.from)} 주`}</span>
+              <span>
+                <b className="num">{w.minutes}분</b>
+                {w.count ? ` · ${w.count}번` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

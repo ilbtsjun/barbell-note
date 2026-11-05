@@ -1,4 +1,4 @@
-import type { Equipment, Goal } from '../db/types';
+import type { Equipment, Goal, Intensity } from '../db/types';
 
 /** 한 종목 자리. 앞에 올수록 먼저 고르는 후보 (없는 기구면 다음 후보). */
 export interface Slot {
@@ -10,6 +10,8 @@ export interface Slot {
 export interface Routine {
   name: string;
   slots: Slot[];
+  /** 마지막에 하는 유산소 (앞 후보부터, 기구가 없으면 다음 후보) */
+  cardio?: { options: string[]; minutes: number; intensity: Intensity };
 }
 
 /** 세트, 횟수, 쉬는 시간 규칙 */
@@ -46,13 +48,16 @@ const main = (...options: string[]): Slot => ({ options, main: true });
 const acc = (...options: string[]): Slot => ({ options });
 const R = (name: string, ...slots: Slot[]): Routine => ({ name, slots });
 
-const STANDARD: TemplateStyle = { mainSets: 4, accSets: 3, accReps: 10, accRestSec: 75 };
+export const STANDARD: TemplateStyle = { mainSets: 4, accSets: 3, accReps: 10, accRestSec: 75 };
 
 // 자주 쓰는 루틴
 const LOWER = R('하체', main('squat', 'leg-press', 'goblet-squat', 'bodyweight-squat'), acc('romanian-deadlift', 'leg-curl', 'bulgarian-split-squat'), acc('leg-press', 'lunge', 'bodyweight-squat'), acc('leg-curl', 'hip-thrust'), acc('hanging-leg-raise', 'crunch'));
 const LOWER_B = R('하체 B', main('deadlift', 'romanian-deadlift', 'hip-thrust'), acc('front-squat', 'hack-squat', 'goblet-squat'), acc('lunge', 'bulgarian-split-squat'), acc('calf-raise'), acc('ab-wheel', 'crunch'));
 const UPPER_A = R('상체 A', main('bench-press', 'dumbbell-bench-press', 'chest-press-machine', 'push-up'), acc('barbell-row', 'one-arm-dumbbell-row', 'seated-cable-row'), acc('overhead-press', 'dumbbell-shoulder-press', 'shoulder-press-machine'), acc('lat-pulldown', 'pull-up'), acc('dumbbell-curl', 'barbell-curl'));
 const UPPER_B = R('상체 B', main('overhead-press', 'dumbbell-shoulder-press', 'shoulder-press-machine'), acc('lat-pulldown', 'pull-up', 'chin-up'), acc('incline-dumbbell-press', 'incline-bench-press', 'push-up'), acc('seated-cable-row', 'one-arm-dumbbell-row'), acc('cable-pushdown', 'overhead-triceps-extension', 'bench-dip'));
+
+/** 체중 감량 시안 마지막의 유산소 20분 */
+const FINISHER: NonNullable<Routine['cardio']> = { options: ['treadmill', 'stationary-bike', 'walking'], minutes: 20, intensity: '보통' };
 
 export const TEMPLATES: PlanTemplate[] = [
   {
@@ -133,19 +138,22 @@ export const TEMPLATES: PlanTemplate[] = [
   {
     id: 'fat-loss-circuit',
     name: '체중 감량 서킷',
-    summary: '전신 위주, 12~15회에 짧게 쉬며 칼로리를 많이 쓰는 구성',
+    summary: '전신 위주, 12~15회에 짧게 쉬고 마지막에 유산소 20분',
     sessions: [3, 4],
     goals: ['체중 감량'],
     needs: [],
     routines: [
-      R('서킷 A', main('goblet-squat', 'squat', 'bodyweight-squat'), acc('push-up', 'dumbbell-bench-press'), acc('one-arm-dumbbell-row', 'seated-cable-row'), acc('lunge', 'bodyweight-squat'), acc('plank', 'crunch')),
-      R('서킷 B', main('romanian-deadlift', 'hip-thrust'), acc('dumbbell-shoulder-press', 'shoulder-press-machine'), acc('lat-pulldown', 'chin-up'), acc('bulgarian-split-squat', 'lunge'), acc('russian-twist', 'crunch')),
+      { ...R('서킷 A', main('goblet-squat', 'squat', 'bodyweight-squat'), acc('push-up', 'dumbbell-bench-press'), acc('one-arm-dumbbell-row', 'seated-cable-row'), acc('lunge', 'bodyweight-squat'), acc('plank', 'crunch')), cardio: FINISHER },
+      { ...R('서킷 B', main('romanian-deadlift', 'hip-thrust'), acc('dumbbell-shoulder-press', 'shoulder-press-machine'), acc('lat-pulldown', 'chin-up'), acc('bulgarian-split-squat', 'lunge'), acc('russian-twist', 'crunch')), cardio: FINISHER },
     ],
     style: { mainSets: 3, mainReps: 12, mainPct: 0.6, mainRestSec: 45, accSets: 3, accReps: 15, accRestSec: 45 },
   },
 ];
 
 export const getTemplate = (id?: string) => TEMPLATES.find((t) => t.id === id) ?? TEMPLATES[0];
+
+/** 화면에 보일 계획 이름 (직접 만든 계획 포함) */
+export const templateName = (id?: string) => (id === 'custom' ? '직접 만든 계획' : getTemplate(id).name);
 
 /** 횟수 대신 버티는 시간(초)으로 하는 운동 */
 const HOLDS = new Set(['plank', 'side-plank']);
