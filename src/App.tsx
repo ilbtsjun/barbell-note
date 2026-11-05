@@ -25,7 +25,7 @@ export default function App() {
 }
 
 function Shell() {
-  const { location, dialog } = useBackGuard();
+  const { location } = useBackGuard();
   return (
     <div className={styles.app}>
       <main className={styles.main}>
@@ -44,7 +44,6 @@ function Shell() {
       </main>
       <TabBar pathname={location.pathname} />
       <UpdatePrompt />
-      {dialog}
     </div>
   );
 }

@@ -1,18 +1,21 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useNavigationType, type Location } from 'react-router-dom';
 import { popBackHandler } from '../lib/backStack';
-import { Sheet } from './Sheet';
-import styles from './BackGuard.module.css';
+import { useToast } from './Toast';
 
 const href = (l: Location) => l.pathname + l.search + l.hash;
 /** 홈 화면에 설치한 앱으로 열었는지 */
 const installed = () => window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 const isGuard = (l: Location) => !!(l.state as { exitGuard?: boolean } | null)?.exitGuard;
+/** 이 시간 안에 뒤로 가기를 한 번 더 누르면 종료된다 */
+const EXIT_WINDOW_MS = 2000;
 
 /**
  * 휴대폰 뒤로 가기 처리.
  * - 열린 창이 있으면 그 창만 닫는다.
- * - 설치한 앱에서는 첫 화면 아래에 '종료 확인' 자리를 하나 깔아 두고, 거기까지 돌아오면 종료할지 묻는다.
+ * - 설치한 앱에서는 첫 화면 아래에 '종료 확인' 자리를 하나 깔아 둔다. 거기까지 돌아오면
+ *   "한 번 더 누르면 종료됩니다"를 띄우고, 그 사이 한 번 더 누르면 앱이 닫힌다.
+ *   웹 앱은 스스로 창을 닫을 수 없어서, 종료는 휴대폰의 뒤로 가기로만 할 수 있다.
  * 화면은 shown(마지막으로 보여 준 위치)으로 그려서, 뒤로 갔다가 다시 돌아오는 동안 화면이 바뀌지 않게 한다.
  */
 export function useBackGuard() {
@@ -20,8 +23,8 @@ export function useBackGuard() {
   const navType = useNavigationType();
   const navigate = useNavigate();
   const [shown, setShown] = useState(location);
+  const toast = useToast();
   const [asking, setAsking] = useState(false);
-  const [closeFailed, setCloseFailed] = useState(false);
   const seen = useRef<string | null>(null);
 
   useLayoutEffect(() => {
@@ -52,8 +55,8 @@ export function useBackGuard() {
       return;
     }
     if (isGuard(location)) {
-      setCloseFailed(false);
       setAsking(true);
+      toast('뒤로 가기를 한 번 더 누르면 종료됩니다');
       return;
     }
     // 같은 화면이 두 번 쌓여 있으면 한 번 더 뒤로
@@ -65,33 +68,22 @@ export function useBackGuard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
-  function stay() {
-    setAsking(false);
-    navigate(href(shown), { state: shown.state });
-  }
+  // 시간이 지나거나 화면을 만지면 종료하지 않고 원래 화면으로 돌아간다
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  useEffect(() => {
+    if (!asking) return;
+    const stay = () => {
+      setAsking(false);
+      navigate(href(shownRef.current), { state: shownRef.current.state });
+    };
+    const timer = window.setTimeout(stay, EXIT_WINDOW_MS);
+    document.addEventListener('pointerdown', stay, { capture: true, once: true });
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('pointerdown', stay, { capture: true });
+    };
+  }, [asking, navigate]);
 
-  function quit() {
-    window.close();
-    // 창을 닫을 수 없는 환경이면 뒤로 가기로 종료하도록 안내한다
-    window.setTimeout(() => setCloseFailed(true), 300);
-  }
-
-  const dialog = asking ? (
-    <Sheet label="앱 종료" onClose={stay}>
-      <h2 className="sec-title">앱을 종료할까요?</h2>
-      <p className={styles.sub} data-strong={closeFailed || undefined}>
-        {closeFailed ? '뒤로 가기를 한 번 더 누르면 종료됩니다.' : '뒤로 가기를 한 번 더 눌러도 종료됩니다.'}
-      </p>
-      <div className={styles.row}>
-        <button type="button" className="btn line" onClick={stay}>
-          취소
-        </button>
-        <button type="button" className="btn" onClick={quit}>
-          종료
-        </button>
-      </div>
-    </Sheet>
-  ) : null;
-
-  return { location: shown, dialog };
+  return { location: shown };
 }

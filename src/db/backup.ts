@@ -43,7 +43,7 @@ export function parseBackup(text: string): Backup {
   }
   const b = raw as Partial<Backup>;
   if (!b || b.app !== BACKUP_APP || typeof b.data !== 'object' || !b.data) throw new Error('바벨노트 백업 파일이 아닙니다.');
-  if (typeof b.version !== 'number' || b.version > BACKUP_VERSION) throw new Error('더 새로운 버전의 앱에서 만든 백업입니다. 앱을 새로고침한 뒤 다시 시도하세요.');
+  if (typeof b.version !== 'number' || b.version > BACKUP_VERSION) throw new Error('더 새로운 버전의 앱에서 만든 백업입니다. 앱을 업데이트한 뒤 다시 시도하세요.');
   const data = b.data as unknown as Record<string, unknown>;
   for (const t of TABLES) {
     const v = data[t];
