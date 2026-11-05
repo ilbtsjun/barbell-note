@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Band } from '../components/Band';
 import { useToast } from '../components/Toast';
 import { useActivePlan, useExerciseMap, useProfile } from '../db/hooks';
-import { createPlan, DEFAULT_PROFILE } from '../db/planRepo';
+import { createPlan, DEFAULT_PROFILE, updatePlan } from '../db/planRepo';
 import type { CustomDay, Equipment, Goal, Weekday } from '../db/types';
 import { CUSTOM_ID, LIMITS, planCustomVolume } from '../lib/customPlan';
 import { mondayOf, weekdayLabel } from '../lib/dates';
@@ -26,6 +26,9 @@ export default function Setup() {
   const active = useActivePlan();
   const exMap = useExerciseMap();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  /** 지금 계획 고치기 (내 정보에서 들어온 경우) */
+  const editing = params.get('mode') === 'edit' && !!active;
   const toast = useToast();
 
   const [lift, setLift] = useState<string>('bench-press');
@@ -64,6 +67,12 @@ export default function Setup() {
       if (active.plan.templateId) {
         setTemplateId(active.plan.templateId);
         setPicked(true);
+      }
+      // 고치기: 이 계획을 만들 때 고른 목표, 요일, 기구로 채운다
+      if (editing) {
+        if (active.plan.goal) setGoal(active.plan.goal);
+        if (active.plan.days) setDays(active.plan.days);
+        if (active.plan.equipment) setEquipment(active.plan.equipment.filter((e) => e !== '맨몸'));
       }
       if (active.plan.custom) {
         setCustomDays(active.plan.custom);
@@ -143,12 +152,16 @@ export default function Setup() {
     }
     setSaving(true);
     try {
-      await createPlan(
-        { baseExerciseId: lift, baseWeight: w, baseReps: r, goal, weeks, days, equipment: fullEquipment, startDate: mondayOf(new Date()), templateId, ...(isCustom ? { custom: customDays } : {}) },
-        bw,
-      );
-      toast('새 계획을 만들었습니다');
-      navigate('/plan');
+      const input = { baseExerciseId: lift, baseWeight: w, baseReps: r, goal, weeks, days, equipment: fullEquipment, startDate: mondayOf(new Date()), templateId, ...(isCustom ? { custom: customDays } : {}) };
+      if (editing && active?.plan.id !== undefined) {
+        await updatePlan(active.plan.id, input, bw);
+        toast('계획을 고쳤습니다');
+        navigate('/me', { replace: true });
+      } else {
+        await createPlan(input, bw);
+        toast('새 계획을 만들었습니다');
+        navigate('/plan', { replace: true });
+      }
     } catch (err) {
       console.error(err);
       setError('계획을 저장하지 못했습니다. 다시 눌러 주세요.');
@@ -159,8 +172,8 @@ export default function Setup() {
   return (
     <>
       <Band>
-        <h1>지금 얼마나 드나요?</h1>
-        <p>최근에 든 무게와 횟수만 알면 1RM을 계산해서 목표까지 주차별 계획을 짜 드립니다.</p>
+        <h1>{editing ? '계획 고치기' : '지금 얼마나 드나요?'}</h1>
+        <p>{editing ? '진행 중인 주차는 그대로 두고 내용만 바꿉니다. 무게는 바꾼 기록으로 다시 계산합니다.' : '최근에 든 무게와 횟수만 알면 1RM을 계산해서 목표까지 주차별 계획을 짜 드립니다.'}</p>
       </Band>
       <form onSubmit={submit} onChange={() => setError('')}>
         <section className="sec">
@@ -288,9 +301,9 @@ export default function Setup() {
             </div>
           </div>
           {error && <p className={styles.error} role="alert">{error}</p>}
-          {active && <p className="sub">새로 만들면 지금 계획은 끝나고, 지난 운동 기록은 그대로 남습니다.</p>}
+          {active && !editing && <p className="sub">새로 만들어도 지금 계획은 내 정보에 저장되어 다시 바꿀 수 있고, 운동 기록은 그대로 남습니다.</p>}
           <button className="btn" type="submit" disabled={saving}>
-            {saving ? '계획 만드는 중' : isCustom ? '직접 만든 계획으로 시작하기' : `${josa(template.name, '으로')} 계획 만들기`}
+            {saving ? '저장하는 중' : editing ? '고친 내용 저장' : isCustom ? '직접 만든 계획으로 시작하기' : `${josa(template.name, '으로')} 계획 만들기`}
           </button>
         </section>
       </form>

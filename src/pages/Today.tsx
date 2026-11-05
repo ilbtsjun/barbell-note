@@ -209,7 +209,7 @@ function DoneToday({ sessions, exMap, today, bodyWeight, cardioButton }: { sessi
         </div>
         {last.memo && <p className={styles.memoText}>{last.memo}</p>}
         {cardioButton}
-        <Link to="/plan" className="btn line">
+        <Link to="/plan" replace className="btn line">
           다음 운동 보기
         </Link>
       </section>

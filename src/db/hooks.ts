@@ -16,6 +16,11 @@ export function useActivePlan() {
   }, []);
 }
 
+/** 모든 계획, 최근에 만든 것부터 */
+export function usePlans() {
+  return useLiveQuery(async () => (await db.plans.toArray()).sort((a, b) => (b.id ?? 0) - (a.id ?? 0)), []);
+}
+
 export function useExerciseMap() {
   return useLiveQuery(async () => new Map((await db.exercises.toArray()).map((e) => [e.id, e])), []);
 }

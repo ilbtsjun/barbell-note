@@ -162,6 +162,9 @@ export function generatePlan(input: PlanInput, exercises: Exercise[]): { plan: O
     startDate: input.startDate,
     active: true,
     templateId: custom ? CUSTOM_ID : template.id,
+    goal: input.goal,
+    days: weekdays,
+    equipment: input.equipment,
   };
   if (custom) plan.custom = custom;
   return { plan, days: out };

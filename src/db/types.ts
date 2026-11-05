@@ -45,6 +45,12 @@ export interface Plan {
   templateId?: string;
   /** 직접 만든 계획의 요일별 구성 (다시 고칠 때 채워 넣는다) */
   custom?: CustomDay[];
+  /** 사용자가 붙인 이름 (없으면 시안 이름) */
+  name?: string;
+  /** 만들 때 고른 목표, 요일, 기구 (다시 고치거나 이 계획으로 바꿀 때 쓴다) */
+  goal?: Goal;
+  days?: Weekday[];
+  equipment?: Equipment[];
 }
 
 /** 계획에 넣은 유산소 */

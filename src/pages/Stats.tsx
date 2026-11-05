@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react';
 import { Band } from '../components/Band';
-import { DataSection } from '../components/DataSection';
 import { LineChart } from '../components/LineChart';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
@@ -142,8 +141,6 @@ export default function Stats() {
           </button>
         ))}
       </section>
-
-      <DataSection />
 
       {openLift && <LiftSheet lift={lifts.find((l) => l.exerciseId === openLift)!} exercise={exMap.get(openLift)} onClose={() => setOpenLift(null)} />}
     </>

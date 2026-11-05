@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { Icon, type IconName } from './icons';
 import styles from './TabBar.module.css';
 
@@ -8,18 +8,19 @@ const TABS: { to: string; label: string; icon: IconName }[] = [
   { to: '/plan', label: '계획', icon: 'plan' },
   { to: '/log', label: '기록', icon: 'log' },
   { to: '/stats', label: '통계', icon: 'stats' },
-  { to: '/library', label: '운동', icon: 'search' },
+  { to: '/me', label: '내 정보', icon: 'me' },
 ];
 
-/** 현재 탭 위치. 능력 입력(/setup)은 계획 탭에 속한다. */
+/** 현재 탭 위치. 능력 입력(/setup)은 계획 탭, 운동 목록(/library)은 내 정보 탭에 속한다. */
 function activeIndex(pathname: string) {
   if (pathname.startsWith('/setup')) return 1;
+  if (pathname.startsWith('/library')) return 4;
   const i = TABS.findIndex((t) => t.to !== '/' && pathname.startsWith(t.to));
   return i === -1 ? 0 : i;
 }
 
-export function TabBar() {
-  const { pathname } = useLocation();
+/** 아래 탭. 탭끼리 오가는 것은 뒤로 가기 기록에 쌓지 않는다. */
+export function TabBar({ pathname }: { pathname: string }) {
   const index = activeIndex(pathname);
   const navRef = useRef<HTMLElement>(null);
   const [pill, setPill] = useState<{ x: number; instant: boolean } | null>(null);
@@ -51,7 +52,7 @@ export function TabBar() {
         />
       )}
       {TABS.map((t, i) => (
-        <NavLink key={t.to} to={t.to} className={styles.tab} aria-current={i === index ? 'page' : undefined}>
+        <NavLink key={t.to} to={t.to} replace className={styles.tab} aria-current={i === index ? 'page' : undefined}>
           <span className={styles.ic}>
             <Icon name={t.icon} />
           </span>

@@ -155,6 +155,9 @@ export const getTemplate = (id?: string) => TEMPLATES.find((t) => t.id === id) ?
 /** 화면에 보일 계획 이름 (직접 만든 계획 포함) */
 export const templateName = (id?: string) => (id === 'custom' ? '직접 만든 계획' : getTemplate(id).name);
 
+/** 계획 이름: 사용자가 붙인 이름, 없으면 시안 이름 */
+export const planName = (plan: { name?: string; templateId?: string }) => plan.name || templateName(plan.templateId);
+
 /** 횟수 대신 버티는 시간(초)으로 하는 운동 */
 const HOLDS = new Set(['plank', 'side-plank']);
 export const isHold = (exerciseId: string) => HOLDS.has(exerciseId);

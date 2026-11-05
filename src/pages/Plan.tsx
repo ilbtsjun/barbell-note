@@ -5,7 +5,7 @@ import { useActivePlan, useExerciseMap } from '../db/hooks';
 import type { Weekday } from '../db/types';
 import { weekNumber, weekdayLabel } from '../lib/dates';
 import { progressSeries, weeklyLoads } from '../lib/planGenerator';
-import { isHold, templateName } from '../lib/templates';
+import { isHold, planName } from '../lib/templates';
 import styles from './Plan.module.css';
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
@@ -47,7 +47,7 @@ export default function Plan() {
     <>
       <Band>
         <p>
-          {templateName(plan.templateId)} · {plan.weeks}주 계획 · {now}주차
+          {planName(plan)} · {plan.weeks}주 계획 · {now}주차
         </p>
         <div className={styles.goal}>
           <span className={`num ${styles.big}`}>{plan.start1RM}</span>
